@@ -10,7 +10,7 @@ def get_text_data(base_model, test_mapping):
     test_x = resize_img_list(test_x, 224, 224)
     test_x = preprocess_input(test_x)
     test_x = base_model.predict(test_x)
-    test_x = test_x.reshape(298, 7 * 7 * 512)
+    test_x = test_x.reshape(len(test_x), 7 * 7 * 512)
     test_x = test_x / test_x.max()
     return test_x, test_y
 

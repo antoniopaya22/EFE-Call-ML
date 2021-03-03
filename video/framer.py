@@ -36,8 +36,8 @@ def convert_video_to_frames_and_crop(video_file, model_name, name="frame", frame
         subfolder_name = subfolder_name + "/training"
     else:
         subfolder_name = subfolder_name + "/test"
-    # x,y,h,w = 0,980,1080,1920 # resolution 1920x980
-    x,y,h,w = 0,642,720,1280 # resolution 1280x720
+    x,y,h,w = 0,980,1080,1920 # resolution 1920x980
+    # x,y,h,w = 0,642,720,1280 # resolution 1280x720
     while cap.isOpened():
         frame_id = cap.get(1)  # current frame number
         ret, frame = cap.read()

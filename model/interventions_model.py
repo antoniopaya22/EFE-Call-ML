@@ -138,12 +138,18 @@ def intersection(lst1, lst2):
     return lst3 
 
 
+
 def get_interventions(folder_name, output_file):
     interv = []
-    for filename in os.listdir(folder_name):
-        frame = number_of_interventions_in_frame(os.path.join(folder_name,filename))
-        interv.append(frame) 
+    i = 0
+    for filename in os.listdir('../data/frames/intervention_frames/training'):
+        frame = number_of_interventions_in_frame(os.path.join('../data/frames/intervention_frames/training',filename))
+        interv.append(frame)
+        i +=1
+        if i%1000==0:
+            print(i) 
     interv = sorted(interv, key=lambda x: x[0])
+    print(len(interv))
     with open(output_file, mode='w', newline='') as csv_file:
         writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(['time', 'user_id'])
@@ -152,4 +158,4 @@ def get_interventions(folder_name, output_file):
                 writer.writerow([element[0], subelement])
 
 if __name__ == '__main__':
-    get_interventions('../data/frames/intervention_frames/training', '../data/interventions/intervention_logs.csv')
+    get_interventions('../data/frames/intervention_frames/training', '../data/interventions_data/intervention_logs.csv')

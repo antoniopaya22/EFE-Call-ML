@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import cv2
 
 from keras.utils import np_utils
 from tensorflow.keras.models import load_model as lm
@@ -75,3 +76,65 @@ def save_model(model, url):
 
 def load_model(url):
     return lm(url)
+
+
+def compare_screens(slides_csv):
+    data = pd.read_csv(slides_csv)
+    changes_logs = []
+   
+    screen1 = None
+    screen2 = None
+    img_name1 = None
+    img_name2 = None
+    for i, c in data.iterrows():
+        
+        img = c['Image_ID']  
+        c = c['Class']
+        if c == 1 or c == 2:
+            if i != 0:
+                img_name2 = img
+                screen2 = cv2.imread('data/frames/slides_frames/test/frame'+str(img_name2)+'.jpg')
+                diff_img=cv2.subtract(screen1,screen2)
+                w,h,c=diff_img.shape
+                total_pixel_value_count=w*h*c*255
+                percentage_match=(total_pixel_value_count -np.sum(diff_img))/total_pixel_value_count*100
+
+                if percentage_match < 98.5:
+                    changes_logs.append([img_name2, percentage_match])
+                    print("Changed ======> ", percentage_match, img_name1, img_name2)
+                screen1 = screen2
+                img_name1 = img_name2
+            else:
+                img_name1 = img
+                screen1 = cv2.imread('data/frames/slides_frames/test/frame'+str(img_name1)+'.jpg')
+    return changes_logs
+
+
+
+def are_screens_similar2(screen1, screen2):
+    comparations = intersection(screen1, screen2) # Intersection of pixels between the one being processed and the one in dictionary
+    return comparations > 1000
+
+
+def are_screens_similar(lst1, lst2): 
+    """
+        A pixel is in lst2 if its colors are similar to any pixel in lst2 and color is not purple
+    """
+    count = 0
+    for i in range(0, len(lst1)):
+        for j in range(0, len(lst1[0])):
+            if are_near_pixel_colors(lst1[i][j], lst2[i][j]):
+                count += 1
+                if count > 400000:
+                    return True
+            j += 2
+        i += 1
+    return False 
+
+
+def are_near_pixel_colors(color_a, color_b):
+    return are_near_single_colors(color_a[0], color_b[0]) and are_near_single_colors(color_a[1], color_b[1]) and are_near_single_colors(color_a[2], color_b[2])
+
+
+def are_near_single_colors(color_a, color_b):
+    return color_b -2 <= color_a <= color_b +2

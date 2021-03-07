@@ -1,7 +1,7 @@
 from video.framer import convert_video_to_frames, convert_video_to_frames_and_crop
 from model.slides_model import create_model, save_model, load_model, compare_screens
 from model.slides_model_test import get_text_data, get_predictions, get_scores
-from model.interventions_model import get_interventions
+from model.interventions_model import get_interventions, get_interventions_simple
 import csv
 
 
@@ -56,13 +56,14 @@ if __name__ == '__main__':
             writer.writerow([number, slides[i]])
     """
     # Posible output de log conjunto: "time, is_presenting, slide_changed_recently, interventor"
-    # print("=================> Get interventions logs")
-    # get_interventions('data/frames/intervention_frames/training', 'intervention_logs.csv')
+    print("=================> Get interventions logs")
+    get_interventions_simple('data/frames/intervention_frames/training', 'data/out/intervention_logs.csv')
     print("Done.")
-
+    """
     changes = compare_screens('data/out/slides.csv')
     with open("data/out/changes.csv", "w", newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Image_ID", "Similarity"])
         for i in range(0, len(changes)):  
             writer.writerow([changes[i][0], changes[i][1]])
+    """

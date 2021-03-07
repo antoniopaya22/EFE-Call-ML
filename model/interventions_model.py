@@ -45,13 +45,22 @@ def number_of_interventions_in_frame(frame):
             difference = last_point_speaker - start_point_speaker
             if difference > 5:  # Avoid false positives
                 count += 1  
-                frame_interv.append(get_line_speaker(image, start_point_speaker, last_point_speaker)) # Get interventor ID
+                frame_interv.append(correct_errors(get_line_speaker(image, start_point_speaker, last_point_speaker))) # Get interventor ID
             start_point_speaker = 0
             last_point_speaker = 0
             last_purple = False
         i += 2
     frame_number = int(frame.split('\\')[-1].split('.')[0][5:])
     return [frame_number, count, frame_interv]
+
+
+def correct_errors(user):
+    """
+    We need to correct some missidecntifications
+    """
+    if user == 6:
+        return 0
+    return user
 
 
 def are_near_pixel_colors(color_a, color_b):
@@ -118,7 +127,7 @@ def has_already_spoken(pixel_line):
     for key in interventors:
         interv = eval(key)
         comparations = intersection(pixel_line, interv) # Intersection of pixels between the one being processed and the one in dictionary
-        if len(comparations) > 30:
+        if len(comparations) > 25:
             return interventors[key]
     return -1
 
@@ -137,25 +146,122 @@ def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if near_color_in_list(value, lst2) and is_purple(value) == False] 
     return lst3 
 
+def load_manual_logs():
+    total_logs = []
+    frames = {}
+    f = open("data/interventions_data/intervention_logs2.txt", "r")
+    for line in f:  
+        parts = line.split(',')
+        start = int(parts[0])
+        user = int(parts[1])
+        if start not in frames:
+            frames[start] = [user]
+        elif user not in frames[start]:
+            frames[start].append(user)
+
+    f = open("data/interventions_data/intervention_logs3.txt", "r")
+    for line in f:  
+        parts = line.split(' ')
+        start = parts[0].split(':')
+        start = int(start[0])*60 + int(start[1])
+        end = parts[1].split(':')
+        end = int(end[0])*60 + int(end[1])
+        user = int(parts[2])
+        
+        for i in range(start, end+1):
+            if i not in frames:
+                frames[i] = [user]
+            elif user not in frames[i]:
+                frames[i].append(user)
+    
+    for key in frames:
+        total_logs.append([key, 0, frames[key]])
+    return total_logs
 
 
-def get_interventions(folder_name, output_file):
-    interv = []
+def generate_logs(logs_by_seconds):
+    interventions_in_process = {}
+    number_of_interventions_by_user = {}
+    new_logs = []
+    last_interv_frame = logs_by_seconds[0][0]
+    time_to_previous_user = 0
+    time_to_previous_general = 0
+    for i in range(0, len(logs_by_seconds)):
+        log = logs_by_seconds[i]
+        for interventor in log[2]:
+            if interventor not in interventions_in_process:
+                interventions_in_process[interventor] = [log[0], last_interv_frame]
+                if interventor not in number_of_interventions_by_user:
+                    number_of_interventions_by_user[interventor] = [1, log[0]]
+                else:
+                    number_of_interventions_by_user[interventor][0] += 1  
+            to_append = []
+            if len(logs_by_seconds)-1 > i:
+                if interventor not in logs_by_seconds[i+1][2]:
+                    duration =  log[0] - interventions_in_process[interventor][0] + 1
+                    time_to_previous_user = interventions_in_process[interventor][0] - number_of_interventions_by_user[interventor][1] + 1
+                    time_to_previous_general = interventions_in_process[interventor][0] - interventions_in_process[interventor][1] + 1
+               
+                    # Format: [start, end, duration, intervention number (user), user_id, time to previous user interv, time to previous interv]
+                    to_append = [interventions_in_process[interventor][0], log[0], duration, number_of_interventions_by_user[interventor][0], interventor, time_to_previous_user, time_to_previous_general] 
+                    interventions_in_process.pop(interventor, None)
+                    number_of_interventions_by_user[interventor][1] = log[0]
+                    last_interv_frame = log[0]
+                    new_logs.append(to_append)
+            else:
+                duration =  log[0] - interventions_in_process[interventor][0] + 1
+                time_to_previous_user = interventions_in_process[interventor][0] - number_of_interventions_by_user[interventor][1] + 1
+                time_to_previous_general = interventions_in_process[interventor][0] - interventions_in_process[interventor][1] + 1
+         
+                # Format: [start, end, duration, intervention number (user), user_id, time to previous user interv, time to previous interv]
+                to_append = [interventions_in_process[interventor][0], log[0], duration, number_of_interventions_by_user[interventor][0], interventor, time_to_previous_user, time_to_previous_general] 
+                interventions_in_process.pop(interventor, None)
+                number_of_interventions_by_user[interventor][1] = log[0]
+                last_interv_frame = log[0]
+                new_logs.append(to_append)
+    return new_logs
+
+
+def get_interventions_simple(folder_name, output_file):
+    interv = load_manual_logs()
     i = 0
-    for filename in os.listdir('../data/frames/intervention_frames/training'):
-        frame = number_of_interventions_in_frame(os.path.join('../data/frames/intervention_frames/training',filename))
+    for filename in os.listdir('data/frames/intervention_frames/training'):
+        frame = number_of_interventions_in_frame(os.path.join('data/frames/intervention_frames/training',filename))
         interv.append(frame)
         i +=1
         if i%1000==0:
             print(i) 
     interv = sorted(interv, key=lambda x: x[0])
-    print(len(interv))
     with open(output_file, mode='w', newline='') as csv_file:
         writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(['time', 'user_id'])
         for element in interv:
             for subelement in element[2]:
                 writer.writerow([element[0], subelement])
+
+
+def get_interventions(folder_name, output_file):
+    print("===========> Parse intervention frames")
+    interv = load_manual_logs()
+    total_frames = os.listdir(folder_name)
+    i = 0
+    for filename in total_frames:
+        i += 1
+        frame = number_of_interventions_in_frame(os.path.join(folder_name,filename))
+        interv.append(frame) 
+        if i%1000==0:
+            print(str(i)+'/'+str(len(total_frames)+i))
+    interv = sorted(interv, key=lambda x: x[0])
+    interv = generate_logs(interv)
+    print("===========> Convert to logs")
+    with open(output_file, mode='w', newline='') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        #writer.writerow(['start', 'end', 'duration', 'interv_number', 'user_id', 'time_to_previous_user', 'time_to_previous_general'])
+        writer.writerow(['user_id', 'start', 'end','duration', 'time_to_previous_user', 'time_to_previous_general'])
+        for element in interv:
+            print(element)
+            writer.writerow([element[4], element[0], element[1], element[2], element[5], element[6]])
+
 
 if __name__ == '__main__':
     get_interventions('../data/frames/intervention_frames/training', '../data/interventions_data/intervention_logs.csv')
